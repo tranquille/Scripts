@@ -1,0 +1,36 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use 5.010;
+
+use File::Basename;
+use Audio::WMA;
+use MP3::Tag;
+
+for my $file( @ARGV ) {
+  chomp $file;
+  
+  my $wma = Audio::WMA->new( $file );
+  my $tags = $wma->tags();
+  foreach( keys %$tags ) {
+    say "$_ : $tags->{ $_ }";
+  }
+
+  my( $name, $path, $suffix ) = fileparse( $file, ".wma" );
+  my $new_name = $name.".mp3";
+  if( $new_name =~ /\[NoDRM\]-/ ) {
+    $new_name =~ s/\[NoDRM\]-//;
+  }
+  say "Convert $file to $new_name";
+  `mplayer -ao pcm:waveheader "$file" 2>&1 /dev/null`;
+  `lame -m j -h --vbr-new -b 192 "audiodump.wav" -o "$new_name"`;
+  my $mp3 = MP3::Tag->new( $new_name );
+  $mp3->title_set( $tags->{'TITLE'}, 1 );
+  $mp3->year_set( $tags->{'YEAR'}, 1 );
+  $mp3->artist_set( $tags->{'AUTHOR'}, 1 );
+  $mp3->track_set( $tags->{'TRACK'}, 1 );
+  $mp3->album_set( $tags->{ 'ALBUMTITLE' }, 1 );
+  $mp3->genre_set( $tags->{ 'GENRE' }, 1 );
+  $mp3->update_tags();
+}
